@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Engineering in the Enterprise — John Adams · ACM Tampa Bay</title>
+<style>
+  /* ---------- palette (validated, dark mode) ---------- */
+  :root {
+    --page:        #0d0d0d;
+    --surface:     #1a1a19;
+    --surface-2:   #222221;
+    --ink:         #ffffff;
+    --ink-2:       #c3c2b7;
+    --muted:       #898781;
+    --hairline:    rgba(255,255,255,0.10);
+    --gridline:    #2c2c2a;
+    /* categorical slots 1-6, fixed order */
+    --c1: #3987e5; /* blue    — protocol        */
+    --c2: #d95926; /* orange  — multi-provider  */
+    --c3: #199e70; /* aqua    — adoption        */
+    --c4: #c98500; /* yellow  — context         */
+    --c5: #d55181; /* magenta — alt models      */
+    --c6: #008300; /* green   — measurement     */
+    --c7: #9085e9; /* violet  — the payoff      */
+    --good: #0ca30c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--page); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* ---------- deck scaling ---------- */
+  #deck {
+    width: 1280px; height: 720px;
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .slide {
+    position: absolute; inset: 0;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 64px 80px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+
+  /* ---------- chrome ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: var(--c1); width: 0; z-index: 30;
+    transition: width .25s ease;
+  }
+  #counter {
+    position: fixed; right: 18px; bottom: 12px; z-index: 30;
+    color: var(--muted); font-size: 13px;
+  }
+  #hint {
+    position: fixed; left: 18px; bottom: 12px; z-index: 30;
+    color: var(--muted); font-size: 12px; opacity: .7;
+  }
+
+  /* ---------- shared type ---------- */
+  .kicker {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 15px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 76px; line-height: 1.04; letter-spacing: -0.02em; font-weight: 750; }
+  h2 { font-size: 46px; line-height: 1.1;  letter-spacing: -0.015em; font-weight: 700; margin-bottom: 28px; }
+  h3 { font-size: 24px; font-weight: 650; }
+  p.lede { font-size: 26px; line-height: 1.45; color: var(--ink-2); max-width: 1000px; }
+  p.lede b { color: var(--ink); font-weight: 650; }
+  .accent { color: var(--c1); }
+
+  ul.tight { list-style: none; }
+  ul.tight li {
+    font-size: 24px; line-height: 1.5; color: var(--ink-2);
+    padding-left: 30px; position: relative; margin-bottom: 14px;
+  }
+  ul.tight li::before {
+    content: ""; position: absolute; left: 0; top: 14px;
+    width: 10px; height: 10px; border-radius: 3px; background: var(--c1);
+  }
+  ul.tight li b, ul.tight li strong { color: var(--ink); font-weight: 650; }
+
+  /* ---------- title slide ---------- */
+  .slide.title { justify-content: center; }
+  .slide.title h1 { font-size: 88px; max-width: 1050px; }
+  .slide.title .sub { font-size: 30px; color: var(--ink-2); margin-top: 26px; }
+  .slide.title .who { margin-top: 64px; font-size: 22px; color: var(--ink-2); line-height: 1.6; }
+  .slide.title .who b { color: var(--ink); }
+  .slide.title .event {
+    margin-top: 10px; font-size: 16px; color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em;
+  }
+
+  /* ---------- section dividers ---------- */
+  .slide.section { justify-content: center; }
+  .slide.section .num {
+    font-size: 200px; font-weight: 800; line-height: 1;
+    letter-spacing: -0.04em; opacity: .95;
+  }
+  .slide.section h2 { font-size: 64px; margin: 18px 0 26px; }
+  .slide.section .inside { font-size: 22px; color: var(--ink-2); line-height: 1.6; max-width: 920px; }
+  .slide.section .inside span { color: var(--muted); }
+
+  /* ---------- agenda ---------- */
+  .agenda-row {
+    display: flex; align-items: baseline; gap: 22px;
+    padding: 17px 0; border-bottom: 1px solid var(--gridline);
+  }
+  .agenda-row:last-child { border-bottom: 0; }
+  .agenda-row .n {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 20px; width: 44px; flex: none;
+  }
+  .agenda-row .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; align-self: center; }
+  .agenda-row .t { font-size: 26px; font-weight: 600; width: 460px; flex: none; }
+  .agenda-row .g { font-size: 19px; color: var(--muted); }
+
+  /* ---------- stat tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 8px; }
+  .tile {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: 10px; padding: 26px 24px 22px;
+    display: flex; flex-direction: column; gap: 10px; min-height: 220px;
+  }
+  .tile .v { font-size: 64px; font-weight: 750; letter-spacing: -0.03em; line-height: 1; }
+  .tile .l { font-size: 17px; color: var(--ink-2); line-height: 1.4; }
+  .tile .s { font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: auto; }
+
+  /* ---------- outcome tiles (3-up) ---------- */
+  .tiles3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 8px; }
+  .tile .th { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .tile .th .dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .tile ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .tile ul li { font-size: 15.5px; color: var(--ink-2); line-height: 1.45; padding-left: 16px; position: relative; }
+  .tile ul li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--muted); }
+  .tile ul li b { color: var(--ink); font-weight: 650; }
+
+  /* ---------- flow diagrams ---------- */
+  .flow { display: flex; align-items: stretch; margin-top: 10px; }
+  .node {
+    background: var(--surface-2); border: 1px solid var(--hairline);
+    border-radius: 10px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 6px; justify-content: center;
+    flex: 1;
+  }
+  .node .nl { font-size: 19px; font-weight: 650; display: flex; align-items: center; gap: 9px; }
+  .node .nl .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .node .nd { font-size: 14.5px; color: var(--muted); line-height: 1.4; }
+  .arrow {
+    flex: none; width: 44px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 26px;
+  }
+  .colstack { flex: 1; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+
+  /* ---------- layer stack ---------- */
+  .layers { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+  .layer {
+    border: 1px solid var(--hairline); border-left: 5px solid var(--c4);
+    background: var(--surface-2); border-radius: 8px;
+    padding: 16px 22px; display: flex; align-items: baseline; gap: 22px;
+  }
+  .layer .lt { font-size: 21px; font-weight: 650; width: 290px; flex: none; }
+  .layer .ld { font-size: 17px; color: var(--muted); }
+  .layer .path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; color: var(--ink-2); width: 230px; flex: none; }
+
+  /* ---------- checklist ---------- */
+  .check li::before {
+    content: "\2713"; background: none; color: var(--good);
+    font-weight: 800; top: 0; width: auto; height: auto; font-size: 22px;
+  }
+
+  /* ---------- two-col ---------- */
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+
+  /* ---------- footer strip inside slides ---------- */
+  .foot {
+    margin-top: auto; padding-top: 18px;
+    font-size: 14px; color: var(--muted);
+    display: flex; justify-content: space-between;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .04em;
+  }
+
+  /* ---------- notes overlay ---------- */
+  #notes {
+    position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+    width: min(900px, 90vw); z-index: 40; display: none;
+    background: #111110; border: 1px solid var(--hairline); border-radius: 10px;
+    padding: 18px 22px; font-size: 17px; line-height: 1.5; color: var(--ink-2);
+    box-shadow: 0 12px 40px rgba(0,0,0,.6);
+  }
+  #notes b { color: var(--ink); }
+  body.show-notes #notes { display: block; }
+  .notes { display: none; }
+
+  /* ---------- overview mode ---------- */
+  body.overview { overflow: auto; }
+  body.overview #deck {
+    position: static; transform: none !important;
+    width: auto; height: auto;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 18px; padding: 40px;
+  }
+  body.overview .slide { display: flex; position: relative; zoom: 0.25; cursor: pointer; }
+  body.overview .slide:hover { outline: 3px solid var(--c1); }
+  body.overview #hint, body.overview #counter { display: none; }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<div id="deck">
+
+  <!-- 1 · TITLE -->
+  <section class="slide title">
+    <div class="kicker">ACM Tampa Bay · Invited Speaker Session</div>
+    <h1>AI Engineering in the Enterprise</h1>
+    <div class="sub">Six decisions that took us from promising demos to an operable AI platform.</div>
+    <div class="who">
+      <b>John Adams</b> — Chief Architect, VideoAmp<br>
+      Agentic Engineering Advocate · formerly Snowflake
+    </div>
+    <div class="event">August 13, 2026 · 8:00 PM ET · Zoom</div>
+    <aside class="notes">Welcome. Frame the night: not a talk about what LLMs can do — a talk about the engineering decisions that make them useful inside a real company. Six decisions, all from systems we run in production at VideoAmp.</aside>
+  </section>
+
+  <!-- 2 · ABOUT -->
+  <section class="slide">
+    <div class="kicker">About</div>
+    <h2>18 years of data infrastructure,<br>now the AI systems on top of it</h2>
+    <ul class="tight">
+      <li><b>Chief Architect at VideoAmp</b> — a measurement company; advertising measurement on large-scale data platforms</li>
+      <li><b>Former Snowflake</b> technology leader — data systems are home turf</li>
+      <li><b>Agentic Engineering Advocate</b> — I run autonomous agent fleets in production, daily</li>
+      <li>I build the systems that build the systems: <b>protocols, proxies, context, evals</b></li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>AI Engineering in the Enterprise</span></div>
+    <aside class="notes">Quick bio. Plant the "measurement company" flag early — it pays off in section 06. Everything tonight is from running systems, not demos.</aside>
+  </section>
+
+  <!-- 3 · THESIS -->
+  <section class="slide">
+    <div class="kicker">Thesis</div>
+    <h2>A demo is a prompt.<br>A platform is a set of <span class="accent">decisions</span>.</h2>
+    <p class="lede">Every enterprise has an impressive AI demo. Almost none survive contact with
+    production — because the model was never the hard part. The hard part is a chain of
+    unglamorous engineering decisions: <b>which protocol, which providers, how to drive adoption,
+    how to structure context, how to evaluate models, and how to measure all of it</b>.
+    Here are the six we made.</p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>AI Engineering in the Enterprise</span></div>
+    <aside class="notes">The central argument. Ask the room: who's seen a great internal AI demo that never shipped? The model worked fine — the decisions around it were never made. Tonight: the six decisions, in the order we made them.</aside>
+  </section>
+
+  <!-- 4 · AGENDA -->
+  <section class="slide">
+    <div class="kicker">Agenda</div>
+    <h2>Six decisions, in the order we made them</h2>
+    <div>
+      <div class="agenda-row"><span class="n" style="color:var(--c1)">01</span><span class="dot" style="background:var(--c1)"></span><span class="t">Choose a protocol</span><span class="g">we chose Anthropic's — one contract for everything</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c2)">02</span><span class="dot" style="background:var(--c2)"></span><span class="t">Go multi-provider</span><span class="g">we built a tools proxy in front of every model</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c3)">03</span><span class="dot" style="background:var(--c3)"></span><span class="t">Tackle adoption</span><span class="g">show people the art of the possible</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c4)">04</span><span class="dot" style="background:var(--c4)"></span><span class="t">Structure context</span><span class="g">prunable, shareable, real-time memory — files first</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c5)">05</span><span class="dot" style="background:var(--c5)"></span><span class="t">Evaluate alt models</span><span class="g">one protocol → talk to anything · LoRA composition</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c6)">06</span><span class="dot" style="background:var(--c6)"></span><span class="t">Measure everything</span><span class="g">hell, we're a measurement company</span></div>
+      <div class="agenda-row"><span class="n" style="color:var(--c7)">→</span><span class="dot" style="background:var(--c7)"></span><span class="t">The payoff</span><span class="g">self-improving loops, our own query engine, retired subscriptions</span></div>
+    </div>
+    <aside class="notes">Each decision gets the same treatment: what we decided, what we built, what broke, what I'd tell you to do. Numbers plus colored dots — identity never rides on color alone.</aside>
+  </section>
+
+  <!-- 5 · SECTION 1 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c1)">01</div>
+    <h2>Choose a protocol</h2>
+    <div class="inside">Before picking models, pick the contract everything speaks <span>— we standardized on the Anthropic Messages API, and it compounded from day one.</span></div>
+    <aside class="notes">Section one. The least discussed, most consequential decision. Not "which model" — "which interface."</aside>
+  </section>
+
+  <!-- 6 · PROTOCOL -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c1)">01 · Protocol</div>
+    <h2>One agreed-upon protocol, everywhere</h2>
+    <ul class="tight">
+      <li><b>We chose the Anthropic protocol</b> — the Messages API — as the internal standard. Not a model choice: an <i>interface</i> choice.</li>
+      <li><b>Everything speaks it.</b> Claude Code and our agent harnesses, internal services, notebooks, CI automations — one request shape, one streaming semantics, one tool-use contract.</li>
+      <li><b>Agents are protocol-native.</b> Our agentic tooling works out of the box because the protocol <i>is</i> the agent contract — tool use, multi-turn, system prompts.</li>
+      <li><b>The payoff is optionality.</b> Once everything speaks one protocol, any provider that can speak it is a config change — that unlocks section 02 and section 05.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>01 · Protocol</span></div>
+    <aside class="notes">Analogy for the room: this is the JDBC/ODBC decision for LLMs. Boring, standard, and the reason everything else got cheap. You're not locking in a vendor — you're locking in a contract.</aside>
+  </section>
+
+  <!-- 7 · SECTION 2 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c2)">02</div>
+    <h2>Go multi-provider</h2>
+    <div class="inside">A protocol is only leverage if something sits in the middle <span>— we built a tools proxy: one endpoint in front of every model, with auth, routing, and telemetry.</span></div>
+    <aside class="notes">Section two. Decision one was the contract; decision two is the broker that enforces it.</aside>
+  </section>
+
+  <!-- 8 · TOOLS PROXY -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c2)">02 · Multi-provider</div>
+    <h2>The tools proxy: one front door for every model</h2>
+    <p class="lede" style="margin-bottom:34px">No app holds a provider key. Everything — agents, services, notebooks — talks to <b>one internal proxy</b> speaking our one protocol.</p>
+    <div class="flow">
+      <div class="colstack">
+        <div class="node"><div class="nl">Claude Code &amp; agent CLIs</div><div class="nd">interactive + background agents</div></div>
+        <div class="node"><div class="nl">Internal services</div><div class="nd">review loops, evals, automations</div></div>
+        <div class="node"><div class="nl">Notebooks &amp; ad-hoc tools</div><div class="nd">raw SDK, bearer-token auth</div></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="colstack" style="flex:1.15">
+        <div class="node" style="border-color:var(--c2)"><div class="nl"><span class="dot" style="background:var(--c2)"></span>Tools proxy</div><div class="nd">speaks the Anthropic protocol in and out · auth · routing · rate limits · telemetry · cost attribution per team &amp; per agent</div></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="colstack">
+        <div class="node"><div class="nl">Anthropic frontier</div><div class="nd">high-leverage judgment calls</div></div>
+        <div class="node"><div class="nl">Open-weights models</div><div class="nd">Kimi / GLM class — high-volume work</div></div>
+        <div class="node"><div class="nl">Self-hosted</div><div class="nd">llama.cpp on spare CPU iron</div></div>
+      </div>
+    </div>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>02 · Multi-provider</span></div>
+    <aside class="notes">The proxy is the highest-leverage piece of infrastructure we built. "Which provider" became policy, not per-repo code. And the telemetry it collects becomes the entire measurement story in section 06.</aside>
+  </section>
+
+  <!-- 9 · ROUTING -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c2)">02 · Multi-provider</div>
+    <h2>Routing: match the provider to the leverage</h2>
+    <ul class="tight">
+      <li><b>Not every task deserves a frontier model.</b> Routine extraction, triage, and mechanical subagent work runs on open-weights models at a fraction of the cost.</li>
+      <li><b>Reserve frontier models for high-leverage judgment</b> — adversarial verification, architecture review, ambiguous calls.</li>
+      <li><b>Tiered pipelines beat single-model pipelines.</b> Our automated PR review: fast model triages → mid model reviews → frontier model verifies before anything is posted.</li>
+      <li>Routing is <b>policy at the proxy</b>, not hope in a prompt.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>02 · Multi-provider</span></div>
+    <aside class="notes">Mental model: spend intelligence where it compounds. A triage decision is worth cents; a wrong review posted on a colleague's PR costs trust. Price the task, then pick the provider.</aside>
+  </section>
+
+  <!-- 10 · SECTION 3 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c3)">03</div>
+    <h2>Tackle adoption</h2>
+    <div class="inside">Infrastructure doesn't create adoption — demos of real work do <span>— show people the art of the possible, then hand them the tools.</span></div>
+    <aside class="notes">Section three. The protocol and proxy are invisible to most engineers. What they see is what an agent just did for a teammate.</aside>
+  </section>
+
+  <!-- 11 · ART OF THE POSSIBLE -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c3)">03 · Adoption</div>
+    <h2>Show, don't tell: the autonomous PR-review pipeline</h2>
+    <p class="lede" style="margin-bottom:30px">Our best adoption tool is a running system: every PR that requests my review gets a full tiered pass — <b>before I ever open it</b>.</p>
+    <div class="flow">
+      <div class="node"><div class="nl">Review requested</div><div class="nd">watched continuously, deduped per PR</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nl"><span class="dot" style="background:var(--c4)"></span>Triage&nbsp;<span class="mono" style="font-size:13px;color:var(--muted)">fast model</span></div><div class="nd">prior-stance check, size &amp; risk triage</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nl"><span class="dot" style="background:var(--c1)"></span>Review&nbsp;<span class="mono" style="font-size:13px;color:var(--muted)">mid model</span></div><div class="nd">full findings, parallel verification</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nl"><span class="dot" style="background:var(--c2)"></span>Verify&nbsp;<span class="mono" style="font-size:13px;color:var(--muted)">frontier</span></div><div class="nd">each finding confirmed against real code</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--c3)"><div class="nl">Post · approve · re-request</div><div class="nd">only confirmed findings ever posted</div></div>
+    </div>
+    <p class="lede" style="margin-top:30px;font-size:21px">People adopt what they can <b>see working</b>. One teammate watching an agent catch a real bug does more than a dozen lunch-and-learns.</p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>03 · Adoption</span></div>
+    <aside class="notes">This pipeline is routing from section 02 made visible — point out the model tier on each node. The adoption lesson: working systems are the evangelism. Engineers trust what they can watch.</aside>
+  </section>
+
+  <!-- 12 · META LOOP -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c3)">03 · Adoption</div>
+    <h2>The demo that sells it: a system that heals itself</h2>
+    <p class="lede" style="margin-bottom:30px">A second loop watches the review loop — detects misbehavior, investigates the root cause, and ships the fix as a draft PR.</p>
+    <div class="flow">
+      <div class="node"><div class="nl">Review loop output</div><div class="nd">findings, posts, approvals — all logged</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nl"><span class="dot" style="background:var(--c5)"></span>Meta-loop · every 6h</div><div class="nd">4 misbehavior detectors: repeats, false "missing file" claims, noise, drift</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="nl">Investigates in a worktree</div><div class="nd">reads transcripts, reproduces, patches</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--c3)"><div class="nl">Draft PR with the fix</div><div class="nd">a human merges — the system heals itself</div></div>
+    </div>
+    <p class="lede" style="margin-top:30px;font-size:21px">Trust mechanics matter as much as capability: <b>worktree isolation, draft PRs, explicit result / needs-input / failed states</b>. Adoption follows trust.</p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>03 · Adoption</span></div>
+    <aside class="notes">Example to tell: the meta-loop caught findings repeating every run, traced them to a 200KB context cap truncating files, and opened a fix — dedup via a signature sidecar. Who reviews the reviewer? Another agent. Adoption follows trust, and trust needs mechanics.</aside>
+  </section>
+
+  <!-- 13 · SECTION 4 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c4)">04</div>
+    <h2>Structure the context</h2>
+    <div class="inside">Agents are only as good as their context · make it prunable, shareable, and real-time <span>— files are a good place to start, not the destination.</span></div>
+    <aside class="notes">Section four. Most "the model is dumb" complaints are really "the context was empty." But context design has its own requirements.</aside>
+  </section>
+
+  <!-- 14 · CONTEXT PRINCIPLES -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c4)">04 · Context</div>
+    <h2>Three requirements: prunable, shareable, real-time</h2>
+    <ul class="tight">
+      <li><b>Prunable.</b> Stale context is worse than no context — it confidently misleads. Structure context so old rules, dead decisions, and expired workarounds can be cut cleanly.</li>
+      <li><b>Shareable.</b> Context is a team asset. Ours lives in the monorepo as reviewed code — CLAUDE.md files, domain rules, checklists — so one engineer's hard-won lesson becomes everyone's context.</li>
+      <li><b>Real-time.</b> Static files go stale the moment the system changes. The destination is live memory — what we call <b>IMEM</b> — context that updates as the system learns.</li>
+      <li><b>But start with files.</b> Plain markdown in the repo gets you 80% of the value on day one, and it's the substrate the real-time layer builds on.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>04 · Context</span></div>
+    <aside class="notes">The progression matters: files first (today, zero infra), then shareability via the repo, then real-time memory as the system matures. Prunability is the requirement everyone forgets — design for deletion.</aside>
+  </section>
+
+  <!-- 15 · LAYERED CONTEXT -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c4)">04 · Context</div>
+    <h2>What the file-based version looks like</h2>
+    <div class="layers">
+      <div class="layer" style="border-left-color:var(--c1)"><span class="lt">Global rules</span><span class="path">~/.claude/</span><span class="ld">personal working agreements, tooling prefs</span></div>
+      <div class="layer" style="border-left-color:var(--c4)"><span class="lt">Project constitution</span><span class="path">CLAUDE.md</span><span class="ld">monorepo philosophy, build system, deploy model</span></div>
+      <div class="layer" style="border-left-color:var(--c3)"><span class="lt">Domain rules</span><span class="path">.claude/rules/&lt;domain&gt;/</span><span class="ld">auto-activated by the files being edited — release checklists load only when touching deploy config</span></div>
+      <div class="layer" style="border-left-color:var(--c5)"><span class="lt">Persistent memory</span><span class="path">indexed memory files</span><span class="ld">hard-won facts survive across sessions — the seed of real-time IMEM</span></div>
+    </div>
+    <p class="lede" style="margin-top:26px;font-size:21px">The monorepo teaches the agent. Conventions live next to the code they govern — <b>reuse &gt; extend &gt; create</b> is enforced by context, not code-review heroics.</p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>04 · Context</span></div>
+    <aside class="notes">The path-activation idea is the one to steal: an agent editing migration config automatically gets the migration checklist in context — nobody pastes anything. Each layer is prunable (delete a file) and shareable (it's in the repo).</aside>
+  </section>
+
+  <!-- 16 · SECTION 5 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c5)">05</div>
+    <h2>Evaluate alternative models</h2>
+    <div class="inside">One agreed-upon protocol means you can talk to anything that speaks it <span>— and open weights open a second door: composition over monolithic fine-tunes.</span></div>
+    <aside class="notes">Section five. This is where decisions 01 and 02 pay off — model evaluation stops being a migration and becomes an experiment.</aside>
+  </section>
+
+  <!-- 17 · EVAL ALT MODELS -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c5)">05 · Alternative models</div>
+    <h2>The protocol is the evaluation harness</h2>
+    <ul class="tight">
+      <li><b>Talk to anything in-protocol.</b> Because every workload speaks one protocol through the proxy, evaluating a new model — open-weights or hosted — is routing traffic, not rewriting code.</li>
+      <li><b>Shadow and A/B by policy.</b> Send 5% of one pipeline node's traffic to a candidate model; compare on the same telemetry. No app changes, no migrations.</li>
+      <li><b>Adversarial validation.</b> One model attacks the output in parallel subagent passes; a stronger model verifies every finding against reality. Only confirmed results count.</li>
+      <li><b>Open weights earn their place.</b> Kimi / GLM-class models now carry routine coding-subagent and extraction work — promoted by measurement, not vibes (section 06).</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>05 · Alternative models</span></div>
+    <aside class="notes">The punchline of the whole architecture: "should we try model X?" went from a quarter-long integration project to an afternoon of routing policy. That's what a protocol buys you.</aside>
+  </section>
+
+  <!-- 18 · LORA COMPOSITION -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c5)">05 · Alternative models</div>
+    <h2>LoRA thinking: compose, don't monolith</h2>
+    <p class="lede" style="margin-bottom:28px">The instinct is to fine-tune one large model to do everything. We went the other way: <b>many small adapters, composed</b>.</p>
+    <ul class="tight">
+      <li><b>Small, single-purpose LoRA adapters</b> — one per task family or convention set. Each is cheap to train, cheap to eval, cheap to roll back.</li>
+      <li><b>Merge without retraining.</b> Techniques like <b>DARE-TIES</b> — drop-and-rescale, then sign-election merging — combine the skills of multiple fine-tunes into one set of weights, sidestepping catastrophic interference.</li>
+      <li><b>Composition is the routing layer's job.</b> The proxy picks base model + adapter composition per workload — the same policy mechanism as provider routing, one level deeper.</li>
+      <li><b>Why not one big fine-tune?</b> One artifact, one point of failure, untestable per-skill, and stale the week after training. Composition keeps every skill independently evaluable.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>05 · Alternative models</span></div>
+    <aside class="notes">For the ML folks: DARE drops most delta parameters and rescales, TIES resolves sign conflicts before merging — together they let you merge adapters trained independently. For everyone else: LEGOs, not marble. Each piece testable, swappable, pruneable — same philosophy as the context layer.</aside>
+  </section>
+
+  <!-- 19 · SECTION 6 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c6)">06</div>
+    <h2>Measure everything</h2>
+    <div class="inside">Hell, we're a measurement company <span>— if the AI platform isn't instrumented like a product, it isn't a platform.</span></div>
+    <aside class="notes">Final section — the one with our company DNA in it. VideoAmp measures advertising for a living; we hold our AI systems to the same standard.</aside>
+  </section>
+
+  <!-- 20 · MEASUREMENT -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c6)">06 · Measurement</div>
+    <h2>Instrument the system, not the leaderboard</h2>
+    <ul class="tight">
+      <li><b>Per-node telemetry on every pipeline.</b> Cost, latency, failure mode, and recovery rate per pipeline node — the proxy makes this free.</li>
+      <li><b>Evals gate promotion.</b> A model, adapter, prompt, or pipeline change ships when the eval suite says so — same discipline as a schema migration.</li>
+      <li><b>System metrics over model benchmarks.</b> We don't ask "is this model good?" We ask "did this node's failure rate drop?"</li>
+      <li><b>Meta-measurement.</b> The meta-loop measures the reviewers themselves — repeated findings, false claims, drift — and files its own fixes.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>06 · Measurement</span></div>
+    <aside class="notes">Set up the next slide: one concrete example of what per-node telemetry finds that no benchmark ever will.</aside>
+  </section>
+
+  <!-- 21 · STAT TILES -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c6)">06 · Measurement</div>
+    <h2>What measurement actually finds</h2>
+    <div class="tiles">
+      <div class="tile">
+        <div class="v" style="color:var(--c1)">93%</div>
+        <div class="l">of one pipeline's failures traced to a single failure mode — JSON recovery</div>
+        <div class="s">Found only by per-node telemetry. Fixed with a cheap-extractor ladder — not a bigger model.</div>
+      </div>
+      <div class="tile">
+        <div class="v" style="color:var(--c2)">3</div>
+        <div class="l">provider tiers in the routing ladder</div>
+        <div class="s">Fast/cheap → mid → frontier, chosen per pipeline node and re-evaluated on live traffic.</div>
+      </div>
+      <div class="tile">
+        <div class="v" style="color:var(--c3)">180+</div>
+        <div class="l">PRs per week in the team firehose</div>
+        <div class="s">Scoped automatically to the handful that requested me — adoption through visible time savings.</div>
+      </div>
+      <div class="tile">
+        <div class="v" style="color:var(--c5)">6h</div>
+        <div class="l">cadence of the meta-loop that reviews the reviewers</div>
+        <div class="s">4 detectors, self-investigated fixes, draft PRs. The system measures itself.</div>
+      </div>
+    </div>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>06 · Measurement</span></div>
+    <aside class="notes">The 93% story is the closer for this section: without per-node failure telemetry, the instinct is "buy a bigger model." The measurement said the model was fine — the JSON extraction ladder was the bottleneck. Measure first, spend second.</aside>
+  </section>
+
+  <!-- 22 · SECTION 7 -->
+  <section class="slide section">
+    <div class="num" style="color:var(--c7)">→</div>
+    <h2>The payoff</h2>
+    <div class="inside">Six decisions compound <span>— here's what they bought us: systems that improve themselves, infrastructure we used to buy, and a flipped build-vs-buy equation.</span></div>
+    <aside class="notes">The closer before takeaways. This is the answer to "why bother" — concrete things that exist only because the six decisions were made.</aside>
+  </section>
+
+  <!-- 23 · WHAT THIS ENABLED -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c7)">→ · The payoff</div>
+    <h2>What this enabled</h2>
+    <div class="tiles3">
+      <div class="tile">
+        <div class="th"><span class="dot" style="background:var(--c7)"></span>Self-improving PR review</div>
+        <ul>
+          <li>The review loop <b>measures itself</b> — 4 misbehavior detectors on a 6-hour meta-loop</li>
+          <li>Investigates its own failures in worktrees, <b>opens its own fix PRs</b></li>
+          <li>Gets quieter as it gets smarter — findings deduped, <b>raised once, not forever</b></li>
+        </ul>
+      </div>
+      <div class="tile">
+        <div class="th"><span class="dot" style="background:var(--c7)"></span>Vampflake: our own query engine</div>
+        <ul>
+          <li>A <b>distributed query engine</b> — Rust on the Arrow ecosystem (DataFusion)</li>
+          <li>One binary, three deployable units — API, worker, UI</li>
+          <li>A build that used to require a vendor or a very large team — done by a <b>small team amplified by agents</b></li>
+        </ul>
+      </div>
+      <div class="tile">
+        <div class="th"><span class="dot" style="background:var(--c7)"></span>Retired legacy subscriptions</div>
+        <ul>
+          <li>Internal agent-built tools <b>replaced legacy enterprise SaaS</b></li>
+          <li>Build-vs-buy flips when building gets an order of magnitude cheaper</li>
+          <li>Every retired subscription <b>funds the next internal platform</b></li>
+        </ul>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:30px;font-size:22px">The compounding part: each of these makes the next one cheaper. <b>The platform builds the platform.</b></p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>→ · The payoff</span></div>
+    <aside class="notes">Three existence proofs. Vampflake is the one engineers ask about: a distributed query engine is exactly the kind of project a team our size "couldn't afford" before agentic engineering. The subscription story is the one finance asks about. Both trace back to protocol + proxy + adoption + context + models + measurement.</aside>
+  </section>
+
+  <!-- 24 · TAKEAWAYS -->
+  <section class="slide">
+    <div class="kicker">Takeaways</div>
+    <h2>The six decisions, portable edition</h2>
+    <ul class="tight check">
+      <li><b>Pick a protocol before a provider</b> — the contract is the leverage.</li>
+      <li><b>Put a proxy in front of everything</b> — routing, auth, and telemetry in one place.</li>
+      <li><b>Drive adoption with running systems</b> — show the art of the possible; build trust mechanics, not mandates.</li>
+      <li><b>Structure context to be prunable, shareable, real-time</b> — and start with plain files.</li>
+      <li><b>Evaluate models through the protocol</b> — and compose small LoRA adapters instead of one monolithic fine-tune.</li>
+      <li><b>Measure everything</b> — per-node, system-level, continuously. (Hell, we're a measurement company.)</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>AI Engineering in the Enterprise</span></div>
+    <aside class="notes">Land the plane. Each takeaway is a decision any org can make this quarter, in this order — none of them require buying anything new.</aside>
+  </section>
+
+  <!-- 23 · Q&A -->
+  <section class="slide title">
+    <div class="kicker">Thanks</div>
+    <h1 style="font-size:72px">Questions?</h1>
+    <div class="who" style="margin-top:48px">
+      <b>John Adams</b> — Chief Architect, VideoAmp<br>
+      Agentic Engineering Advocate
+    </div>
+    <div class="event">ACM Tampa Bay · thanks to Nithesh Gudipuri &amp; the chapter · August 13, 2026</div>
+    <aside class="notes">Q&A. Likely: Where do you start? (Protocol + proxy, then one visible agent loop.) What about security? (Proxy auth + blast-radius mechanics.) LoRA tooling? (Start with merging off-the-shelf adapters before training your own.) Cost numbers? (Routing + measurement slides.)</aside>
+  </section>
+
+</div>
+
+<div id="counter" class="mono"></div>
+<div id="hint" class="mono">→ advance · ← back · O overview · F fullscreen · N notes</div>
+<div id="notes"></div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.getElementById('counter');
+  var progress = document.getElementById('progress');
+  var notesBox = document.getElementById('notes');
+  var deck = document.getElementById('deck');
+  var i = 0;
+
+  function clamp(n) { return Math.max(0, Math.min(slides.length - 1, n)); }
+
+  function show(n, pushHash) {
+    i = clamp(n);
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === i); });
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    progress.style.width = ((i + 1) / slides.length * 100) + '%';
+    var notes = slides[i].querySelector('.notes');
+    notesBox.innerHTML = notes ? '<b>Notes · </b>' + notes.innerHTML : '';
+    if (pushHash !== false) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  function fit() {
+    if (document.body.classList.contains('overview')) return;
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    deck.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+
+  function toggleOverview() {
+    document.body.classList.toggle('overview');
+    fit();
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var over = document.body.classList.contains('overview');
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case 'PageDown':
+      case ' ':
+        e.preventDefault();
+        if (over) { toggleOverview(); } else { show(i + 1); }
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        if (!over) { show(i - 1); }
+        break;
+      case 'Home':
+        show(0);
+        break;
+      case 'End':
+        show(slides.length - 1);
+        break;
+      case 'o':
+      case 'O':
+      case 'Escape':
+        toggleOverview();
+        break;
+      case 'f':
+      case 'F':
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen().catch(function () {});
+        }
+        break;
+      case 'n':
+      case 'N':
+        document.body.classList.toggle('show-notes');
+        break;
+    }
+  });
+
+  deck.addEventListener('click', function (e) {
+    if (!document.body.classList.contains('overview')) return;
+    var s = e.target.closest('.slide');
+    if (s) {
+      toggleOverview();
+      show(slides.indexOf(s));
+    }
+  });
+
+  window.addEventListener('resize', fit);
+
+  var start = parseInt((location.hash || '').slice(1), 10);
+  show(isNaN(start) ? 0 : start - 1, false);
+  fit();
+})();
+</script>
+</body>
+</html>
