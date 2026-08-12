@@ -347,7 +347,7 @@
       <li><b>The router itself is becoming a model.</b> The proxy's AAOS rail classifies each request with a small open model (Mellum2 on self-hosted vLLM) and picks the cheapest capable tier — shadow mode today, logging oracle decisions as training data.</li>
     </ul>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>02 · Multi-provider</span></div>
-    <aside class="notes">Mental model: spend intelligence where it compounds. A triage decision is worth cents; a wrong review posted on a colleague's PR costs trust. Price the task, then pick the provider.</aside>
+    <aside class="notes">Mental model: spend intelligence where it compounds. A triage decision is worth cents; a wrong review posted on a colleague's PR costs trust. Price the task, then pick the provider. Nuance that shipped this month: routing rules respect Claude Code plan mode — don't downgrade Opus while the user is mid-plan. And AAOS runs shadow in staging at full traffic; prod is opt-in while the traces accumulate.</aside>
   </section>
 
   <!-- 10 · POLICY POINT -->
@@ -427,11 +427,12 @@
     <ul class="tight">
       <li><b>Prunable.</b> Stale context is worse than no context — it confidently misleads. Structure context so old rules, dead decisions, and expired workarounds can be cut cleanly.</li>
       <li><b>Shareable.</b> Context is a team asset. Ours lives in the monorepo as reviewed code — CLAUDE.md files, domain rules, checklists — so one engineer's hard-won lesson becomes everyone's context.</li>
-      <li><b>Real-time.</b> Static files go stale the moment the system changes. The destination is live memory — what we call <b>IMEM</b> — context that updates as the system learns.</li>
+      <li><b>Real-time.</b> Static files go stale the moment the system changes. So we built <b>IMEM — institutional memory as a service</b>: versioned immutable artifacts, semantic search, served over gRPC and MCP. It's live, not a roadmap.</li>
       <li><b>But start with files.</b> Plain markdown in the repo gets you 80% of the value on day one, and it's the substrate the real-time layer builds on.</li>
     </ul>
+    <p class="lede" style="margin-top:24px;font-size:20px">The budget is defended at every layer — even the shell. A Rust CLI proxy filters tool output before it hits the context window: <b>53M tokens saved (68%) across 100k commands</b>.</p>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>04 · Context</span></div>
-    <aside class="notes">The progression matters: files first (today, zero infra), then shareability via the repo, then real-time memory as the system matures. Prunability is the requirement everyone forgets — design for deletion.</aside>
+    <aside class="notes">The progression matters: files first (today, zero infra), then shareability via the repo, then real-time memory as the system matures. Prunability is the requirement everyone forgets — design for deletion. The CLI filter (rtk) is the client-side lever: 60–90% output compression, &lt;10ms overhead, 100+ commands. And context isn't just for coding: an agent picked up a departing engineer's Slack TODO, traced five prior ADRs, and drafted ADR-077 (default-deny array columns in canonical Iceberg) — context acting as governance.</aside>
   </section>
 
   <!-- 15 · LAYERED CONTEXT -->
@@ -442,7 +443,7 @@
       <div class="layer" style="border-left-color:var(--c1)"><span class="lt">Global rules</span><span class="path">~/.claude/</span><span class="ld">personal working agreements, tooling prefs</span></div>
       <div class="layer" style="border-left-color:var(--c4)"><span class="lt">Project constitution</span><span class="path">CLAUDE.md</span><span class="ld">monorepo philosophy, build system, deploy model</span></div>
       <div class="layer" style="border-left-color:var(--c3)"><span class="lt">Domain rules</span><span class="path">.claude/rules/&lt;domain&gt;/</span><span class="ld">auto-activated by the files being edited — release checklists load only when touching deploy config</span></div>
-      <div class="layer" style="border-left-color:var(--c5)"><span class="lt">Persistent memory</span><span class="path">indexed memory files</span><span class="ld">hard-won facts survive across sessions — the seed of real-time IMEM</span></div>
+      <div class="layer" style="border-left-color:var(--c5)"><span class="lt">Persistent memory</span><span class="path">indexed memory files</span><span class="ld">hard-won facts survive across sessions — now graduating into IMEM, the live memory service</span></div>
     </div>
     <p class="lede" style="margin-top:26px;font-size:21px">The monorepo teaches the agent. Conventions live next to the code they govern — <b>reuse &gt; extend &gt; create</b> is enforced by context, not code-review heroics.</p>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>04 · Context</span></div>
@@ -463,13 +464,13 @@
     <h2>The protocol is the evaluation harness</h2>
     <ul class="tight">
       <li><b>Talk to anything in-protocol.</b> Because every workload speaks one protocol through the proxy, evaluating a new model — open-weights or hosted — is routing traffic, not rewriting code.</li>
-      <li><b>Shadow and A/B by policy.</b> Send 5% of one pipeline node's traffic to a candidate model; compare on the same telemetry. No app changes, no migrations.</li>
+      <li><b>New model to production in an afternoon.</b> When Kimi K2.7-Code and GLM-5.2 previews appeared, routing them took five migrations and zero app changes — that's what the protocol buys.</li>
       <li><b>Adversarial validation.</b> One model attacks the output in parallel subagent passes; a stronger model verifies every finding against reality. Only confirmed results count.</li>
       <li><b>Open weights earn their place.</b> Kimi / GLM-class models now carry routine coding-subagent and extraction work — promoted by measurement, not vibes (section 06).</li>
       <li><b>Evals are a production workload, not a side quest.</b> Our developer-evaluation harness is itself a proxy service account — 86k requests and 730M tokens of structured judgment, with its own budget line.</li>
     </ul>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>05 · Alternative models</span></div>
-    <aside class="notes">The punchline of the whole architecture: "should we try model X?" went from a quarter-long integration project to an afternoon of routing policy. That's what a protocol buys you.</aside>
+    <aside class="notes">The punchline of the whole architecture: "should we try model X?" went from a quarter-long integration project to an afternoon of routing policy. The honest counterweight if asked: the real cost of multi-provider is protocol fidelity — signed thinking blocks 400ed on open-weights targets (messages.N.content.0.thinking.signature: Field required) and K3's 1M variant has no effort knob. Translation layers earn their keep. Small-model reality check: a 1B local model's "stable finding" flipped targets between runs and was a false positive both ways — measure, don't hope.</aside>
   </section>
 
   <!-- 18 · LORA COMPOSITION -->
@@ -504,9 +505,10 @@
       <li><b>Evals gate promotion.</b> A model, adapter, prompt, or pipeline change ships when the eval suite says so — same discipline as a schema migration.</li>
       <li><b>System metrics over model benchmarks.</b> We don't ask "is this model good?" We ask "did this node's failure rate drop?"</li>
       <li><b>Meta-measurement.</b> The meta-loop measures the reviewers themselves — repeated findings, false claims, drift — and files its own fixes.</li>
+      <li><b>FinOps comes free.</b> Per-user, per-department cost attribution on 15-minute rollups — AI spend lands in the same reviews as cloud spend.</li>
     </ul>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>06 · Measurement</span></div>
-    <aside class="notes">Set up the next slide: one concrete example of what per-node telemetry finds that no benchmark ever will.</aside>
+    <aside class="notes">Set up the next slide: concrete examples of what per-node telemetry finds that no benchmark ever will. Best war story: the K3 turn-stall investigation — one symptom, two independent root causes, found only in per-request streamed-event logs (a PoC rail silently re-serving turns; plus "200 ≠ honored" — the gateway silently ignored an unrecognized field). Dashboards showed nothing; the event log showed everything.</aside>
   </section>
 
   <!-- 21 · STAT TILES -->
@@ -563,9 +565,9 @@
       <div class="tile">
         <div class="th"><span class="dot" style="background:var(--c7)"></span>Vampflake: our own query engine</div>
         <ul>
-          <li>A <b>distributed query engine</b> — Rust on the Arrow ecosystem (DataFusion)</li>
-          <li>One binary, three deployable units — API, worker, UI</li>
-          <li>A build that used to require a vendor or a very large team — done by a <b>small team amplified by agents</b></li>
+          <li>A <b>distributed query engine</b> — Rust + DataFusion over our own Iceberg tables, drop-in for Snowflake compute</li>
+          <li>Now <b>faster than the warehouse it replaces</b> — 0.84x TPC-H runtime, 15 of 22 queries won</li>
+          <li><b>2.9–9.8x cheaper</b> per hour — built by a <b>small team amplified by agents</b></li>
         </ul>
       </div>
       <div class="tile">
@@ -582,7 +584,34 @@
     <aside class="notes">Three existence proofs. Vampflake is the one engineers ask about: a distributed query engine is exactly the kind of project a team our size "couldn't afford" before agentic engineering. The subscription story is the one finance asks about. Both trace back to protocol + proxy + adoption + context + models + measurement.</aside>
   </section>
 
-  <!-- 24 · TAKEAWAYS -->
+  <!-- 24 · VAMPFLAKE ARC -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c7)">→ · The payoff</div>
+    <h2>Vampflake: the measured arc</h2>
+    <p class="lede" style="margin-bottom:26px">A Rust/DataFusion engine on TPC-H SF10 against Snowflake — <b>every step benchmarked, nothing guessed</b>.</p>
+    <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
+      <div class="tile">
+        <div class="v" style="color:var(--c2)">4.2x</div>
+        <div class="l">slower than Snowflake at the first honest benchmark — 81.4s vs 19.5s</div>
+        <div class="s">February. Baseline published internally, not hidden.</div>
+      </div>
+      <div class="tile">
+        <div class="v" style="color:var(--c3)">0.84x</div>
+        <div class="l">after ten benchmarked optimizations — now faster, winning 15 of 22 queries</div>
+        <div class="s">Join reorder −44% on Q7 · NVMe cache 2–5x scans · theory → plan → benchmark → commit or discard.</div>
+      </div>
+      <div class="tile">
+        <div class="v" style="color:var(--c5)">9.8x</div>
+        <div class="l">cheaper per hour at the extreme — $0.47 spot vs $4.60 Snowflake Small</div>
+        <div class="s">2.9x on-demand. $26k/yr saved per always-on cluster.</div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:28px;font-size:21px">The method is the message: <b>no optimization ships without a benchmark.</b> The loop that measures agents measures engines.</p>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>→ · The payoff</span></div>
+    <aside class="notes">Tell the arc honestly: we started 4.2x DOWN and said so. Ten optimizations, each with a measured delta — cost-based join reorder, category routing, NVMe full-file cache at 3GB/s, files-per-group tuning, Graviton4 SVE2, jemalloc + fat LTO. Some theories failed their benchmark and were discarded — that IS the loop. Architecture if asked: thin API coordinator that never touches data, ARM Graviton4 workers with 474GB NVMe, CockroachDB metadata, Flight SQL compatible, live at vampflake-api.videoamp.tools.</aside>
+  </section>
+
+  <!-- 25 · TAKEAWAYS -->
   <section class="slide">
     <div class="kicker">Takeaways</div>
     <h2>The six decisions, portable edition</h2>
