@@ -314,7 +314,7 @@
   <section class="slide">
     <div class="kicker" style="color:var(--c2)">02 · Multi-provider</div>
     <h2>The tools proxy: one front door for every model</h2>
-    <p class="lede" style="margin-bottom:34px">No app holds a provider key. Everything — agents, services, notebooks — talks to <b>one internal proxy</b> speaking our one protocol.</p>
+    <p class="lede" style="margin-bottom:34px">No app holds a provider key. Everything — agents, services, notebooks — talks to <b>one internal proxy</b> speaking our one protocol. <b>265 engineers and 19 service accounts</b> have pushed <b>5M requests</b> through it.</p>
     <div class="flow">
       <div class="colstack">
         <div class="node"><div class="nl">Claude Code &amp; agent CLIs</div><div class="nd">interactive + background agents</div></div>
@@ -343,14 +343,28 @@
     <ul class="tight">
       <li><b>Not every task deserves a frontier model.</b> Routine extraction, triage, and mechanical subagent work runs on open-weights models at a fraction of the cost.</li>
       <li><b>Reserve frontier models for high-leverage judgment</b> — adversarial verification, architecture review, ambiguous calls.</li>
-      <li><b>Tiered pipelines beat single-model pipelines.</b> Our automated PR review: fast model triages → mid model reviews → frontier model verifies before anything is posted.</li>
-      <li>Routing is <b>policy at the proxy</b>, not hope in a prompt.</li>
+      <li><b>The economics are visible in the data.</b> Our PR-review service account runs 31% of its 87k requests on haiku-class models — for 2.5% of its spend.</li>
+      <li><b>The router itself is becoming a model.</b> The proxy's AAOS rail classifies each request with a small open model (Mellum2 on self-hosted vLLM) and picks the cheapest capable tier — shadow mode today, logging oracle decisions as training data.</li>
     </ul>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>02 · Multi-provider</span></div>
     <aside class="notes">Mental model: spend intelligence where it compounds. A triage decision is worth cents; a wrong review posted on a colleague's PR costs trust. Price the task, then pick the provider.</aside>
   </section>
 
-  <!-- 10 · SECTION 3 -->
+  <!-- 10 · POLICY POINT -->
+  <section class="slide">
+    <div class="kicker" style="color:var(--c2)">02 · Multi-provider</div>
+    <h2>The proxy is also the policy point</h2>
+    <p class="lede" style="margin-bottom:26px">Once every request flows through one chokepoint, governance stops being a PDF and becomes <b>code that runs pre-call</b>.</p>
+    <ul class="tight">
+      <li><b>SQL guardrail.</b> Every tool call's SQL is parsed at the proxy — <b>DROP / DELETE / TRUNCATE denied with a 403</b> before the request ever reaches a model. Agent-proofing the database.</li>
+      <li><b>Secrets scanner.</b> Prompts are scanned for live credentials — GitHub, Slack, Stripe, Anthropic keys — shipped shadow-first, feeding SecOps before it ever blocks.</li>
+      <li><b>Runtime modes, no redeploy.</b> Each rail flips off → shadow → enforce from the admin UI. Policy rolls out the way models do: gradually, measured, reversible.</li>
+    </ul>
+    <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>02 · Multi-provider</span></div>
+    <aside class="notes">This is the slide CISOs care about. One chokepoint means guardrails apply to every agent and every human uniformly — no per-app compliance chase. The shadow-first pattern is the same discipline as model routing: observe, measure, then enforce. Details: mvdan/sh AST walker for Bash tool calls, file-write extractors for .sql/.psql paths, prefix-keyed regex for secrets (generic entropy patterns dropped after a false-positive flood — measure, then tighten).</aside>
+  </section>
+
+  <!-- 11 · SECTION 3 -->
   <section class="slide section">
     <div class="num" style="color:var(--c3)">03</div>
     <h2>Tackle adoption</h2>
@@ -374,7 +388,7 @@
       <div class="arrow">→</div>
       <div class="node" style="border-color:var(--c3)"><div class="nl">Post · approve · re-request</div><div class="nd">only confirmed findings ever posted</div></div>
     </div>
-    <p class="lede" style="margin-top:30px;font-size:21px">People adopt what they can <b>see working</b>. One teammate watching an agent catch a real bug does more than a dozen lunch-and-learns.</p>
+    <p class="lede" style="margin-top:30px;font-size:21px">People adopt what they can <b>see working</b>. One teammate watching an agent catch a real bug does more than a dozen lunch-and-learns. <b>265 engineers joined with no mandate.</b></p>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>03 · Adoption</span></div>
     <aside class="notes">This pipeline is routing from section 02 made visible — point out the model tier on each node. The adoption lesson: working systems are the evangelism. Engineers trust what they can watch.</aside>
   </section>
@@ -452,6 +466,7 @@
       <li><b>Shadow and A/B by policy.</b> Send 5% of one pipeline node's traffic to a candidate model; compare on the same telemetry. No app changes, no migrations.</li>
       <li><b>Adversarial validation.</b> One model attacks the output in parallel subagent passes; a stronger model verifies every finding against reality. Only confirmed results count.</li>
       <li><b>Open weights earn their place.</b> Kimi / GLM-class models now carry routine coding-subagent and extraction work — promoted by measurement, not vibes (section 06).</li>
+      <li><b>Evals are a production workload, not a side quest.</b> Our developer-evaluation harness is itself a proxy service account — 86k requests and 730M tokens of structured judgment, with its own budget line.</li>
     </ul>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>05 · Alternative models</span></div>
     <aside class="notes">The punchline of the whole architecture: "should we try model X?" went from a quarter-long integration project to an afternoon of routing policy. That's what a protocol buys you.</aside>
@@ -500,28 +515,28 @@
     <h2>What measurement actually finds</h2>
     <div class="tiles">
       <div class="tile">
-        <div class="v" style="color:var(--c1)">93%</div>
-        <div class="l">of one pipeline's failures traced to a single failure mode — JSON recovery</div>
-        <div class="s">Found only by per-node telemetry. Fixed with a cheap-extractor ladder — not a bigger model.</div>
+        <div class="v" style="color:var(--c1)">31.3B</div>
+        <div class="l">tokens routed through one internal proxy — 5M requests and counting</div>
+        <div class="s">Every request, every user, every agent: one observable stream. 9.7B tokens in the last 30 days alone.</div>
       </div>
       <div class="tile">
-        <div class="v" style="color:var(--c2)">3</div>
-        <div class="l">provider tiers in the routing ladder</div>
-        <div class="s">Fast/cheap → mid → frontier, chosen per pipeline node and re-evaluated on live traffic.</div>
+        <div class="v" style="color:var(--c2)">96%</div>
+        <div class="l">of input-side tokens served from prompt cache — 772B cache-read tokens</div>
+        <div class="s">The biggest cost lever wasn't the model. It was caching discipline, visible only because the proxy measures it.</div>
       </div>
       <div class="tile">
-        <div class="v" style="color:var(--c3)">180+</div>
-        <div class="l">PRs per week in my own review firehose</div>
-        <div class="s">Scoped automatically to the handful that requested me — adoption through visible time savings.</div>
+        <div class="v" style="color:var(--c3)">265</div>
+        <div class="l">engineers on the platform — 220 active in the last 30 days</div>
+        <div class="s">Organic adoption, no mandate. Plus 19 service accounts: bots are first-class citizens.</div>
       </div>
       <div class="tile">
-        <div class="v" style="color:var(--c5)">6h</div>
-        <div class="l">cadence of the meta-loop that reviews the reviewers</div>
-        <div class="s">4 detectors, self-investigated fixes, draft PRs. The system measures itself.</div>
+        <div class="v" style="color:var(--c5)">98.8%</div>
+        <div class="l">request success rate across 5M production requests</div>
+        <div class="s">Infrastructure-grade reliability for a workload most orgs run on laptops with personal API keys.</div>
       </div>
     </div>
     <div class="foot"><span>John Adams · ACM Tampa Bay</span><span>06 · Measurement</span></div>
-    <aside class="notes">The 93% story is the closer for this section: without per-node failure telemetry, the instinct is "buy a bigger model." The measurement said the model was fine — the JSON extraction ladder was the bottleneck. Measure first, spend second.</aside>
+    <aside class="notes">All numbers are live from the prod tools proxy analytics API (pulled the week of the talk). All-time: 5.0M requests, 31.3B tokens, 265 users, 98.8% success. Last 30d: 1.2M requests, 9.7B tokens, 220 active users. Cache story: 772B cache-read vs 28.7B uncached input = ~96% hit rate. Also tell the older story if asked: one pipeline had 93% of failures from JSON recovery — fixed the extractor ladder, not the model.</aside>
   </section>
 
   <!-- 22 · SECTION 7 -->
