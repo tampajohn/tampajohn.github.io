@@ -216,6 +216,27 @@
   body.overview .slide { display: flex; position: relative; zoom: 0.25; cursor: pointer; }
   body.overview .slide:hover { outline: 3px solid var(--c1); }
   body.overview #hint, body.overview #counter { display: none; }
+
+  /* ---------- touch / mobile ---------- */
+  body { touch-action: manipulation; }
+  #deck { touch-action: pan-y; }
+  #rotate-hint {
+    display: none;
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 50; background: rgba(20,20,19,.92); border: 1px solid var(--hairline);
+    color: var(--ink-2); border-radius: 999px; padding: 8px 16px;
+    font-size: 13px; white-space: nowrap;
+    transition: opacity .6s ease;
+  }
+  #rotate-hint.faded { opacity: 0; pointer-events: none; }
+  @media (orientation: portrait) and (pointer: coarse) {
+    #rotate-hint { display: block; }
+  }
+  @media (max-width: 760px) {
+    body.overview #deck { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 16px; }
+    #counter { font-size: 12px; right: 12px; bottom: 8px; }
+    #hint { left: 12px; bottom: 8px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -644,6 +665,7 @@
 <div id="counter" class="mono"></div>
 <div id="hint" class="mono">→ advance · ← back · O overview · F fullscreen · N notes</div>
 <div id="notes"></div>
+<div id="rotate-hint">↻ rotate for full-size slides</div>
 
 <script>
 (function () {
@@ -728,6 +750,36 @@
       show(slides.indexOf(s));
     }
   });
+
+  // --- touch: swipe left/right to navigate, tap edges as fallback ---
+  var touchX = 0, touchY = 0, touchT = 0;
+  deck.addEventListener('touchstart', function (e) {
+    var t = e.changedTouches[0];
+    touchX = t.clientX; touchY = t.clientY; touchT = Date.now();
+  }, { passive: true });
+  deck.addEventListener('touchend', function (e) {
+    if (document.body.classList.contains('overview')) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - touchX, dy = t.clientY - touchY;
+    var adx = Math.abs(dx), ady = Math.abs(dy);
+    if (adx > 50 && adx > ady * 1.5) {
+      show(dx < 0 ? i + 1 : i - 1);
+      e.preventDefault();
+    } else if (adx < 12 && ady < 12 && Date.now() - touchT < 400) {
+      var w = window.innerWidth;
+      if (t.clientX > w * 0.67) { show(i + 1); e.preventDefault(); }
+      else if (t.clientX < w * 0.33) { show(i - 1); e.preventDefault(); }
+    }
+  }, { passive: false });
+
+  // touch-device affordances
+  var rotateHint = document.getElementById('rotate-hint');
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    document.getElementById('hint').textContent = 'swipe ← → · tap edges';
+    setTimeout(function () { rotateHint.classList.add('faded'); }, 6000);
+  } else {
+    rotateHint.style.display = 'none';
+  }
 
   window.addEventListener('resize', fit);
 
